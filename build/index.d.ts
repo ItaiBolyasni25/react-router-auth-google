@@ -27,6 +27,7 @@ export declare class GoogleOAuth2Strategy<User> extends Strategy<User, GoogleOAu
     constructor(options: GoogleOAuth2Strategy.ConstructorOptions, verify: Strategy.VerifyFunction<User, GoogleOAuth2Strategy.VerifyOptions>);
     private get cookieName();
     private get cookieOptions();
+    revokeToken(token: string): Promise<void>;
     authenticate(request: Request): Promise<User>;
     protected validateAuthorizationCode(code: string, codeVerifier: string): Promise<OAuth2Tokens>;
     protected createAuthorizationURL(): {

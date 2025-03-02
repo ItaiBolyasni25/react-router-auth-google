@@ -34,6 +34,9 @@ export class GoogleOAuth2Strategy extends Strategy {
             return {};
         return this.options.cookie ?? {};
     }
+    async revokeToken(token) {
+        await this.client.revokeToken(token);
+    }
     async authenticate(request) {
         debug("Request URL", request.url);
         let url = new URL(request.url);

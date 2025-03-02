@@ -80,6 +80,10 @@ export class GoogleOAuth2Strategy<User> extends Strategy<
 		return this.options.cookie ?? {};
 	}
 
+	async revokeToken(token: string) {
+		await this.client.revokeToken(token);
+	}
+
 	override async authenticate(request: Request): Promise<User> {
 		debug("Request URL", request.url);
 
