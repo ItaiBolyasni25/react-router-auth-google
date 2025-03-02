@@ -182,13 +182,13 @@ export class GoogleOAuth2Strategy<User> extends Strategy<
 		params.set("access_type", this.accessType);
 		params.set("include_granted_scopes", String(this.includeGrantedScopes));
 		if (this.options.prompt) {
-			initialParams.set("prompt", this.options.prompt);
+			params.set("prompt", this.options.prompt);
 		}
 		if (this.options.hd) {
-			initialParams.set("hd", this.options.hd);
+			params.set("hd", this.options.hd);
 		}
 		if (this.options.loginHint) {
-			initialParams.set("login_hint", this.options.loginHint);
+			params.set("login_hint", this.options.loginHint);
 		}
 
 		return params;
