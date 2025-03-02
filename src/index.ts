@@ -5,16 +5,40 @@ import {
 	OAuth2Client,
 	OAuth2RequestError,
 	OAuth2Tokens,
+	decodeIdToken,
 	generateCodeVerifier,
 	generateState,
 } from "arctic";
+import createDebug from "debug";
 import { redirect } from "react-router";
 import { Strategy } from "remix-auth/strategy";
 import { StateStore } from "./lib/store.js";
 
+export const GoogleStrategyScopeSeperator = " ";
+export const GoogleStrategyDefaultScopes = [
+	"openid",
+	"https://www.googleapis.com/auth/userinfo.profile",
+	"https://www.googleapis.com/auth/userinfo.email",
+];
+
+export type GoogleOAuth2UserClaims = {
+	iss: string;
+	azp: string;
+	aud: string;
+	sub: string;
+	email: string;
+	email_verified: boolean;
+	at_hash: string;
+	name: string;
+	picture: string;
+	given_name: string;
+	iat: number;
+	exp: number;
+};
+
 type URLConstructor = ConstructorParameters<typeof URL>[0];
 
-const debug = console.write;
+const debug = createDebug("GoogleOAuth2Strategy");
 
 export class GoogleOAuth2Strategy<User> extends Strategy<
 	User,
@@ -24,24 +48,31 @@ export class GoogleOAuth2Strategy<User> extends Strategy<
 
 	protected client: Google;
 
+	private readonly accessType: string;
+
+	private readonly includeGrantedScopes: boolean;
+
 	constructor(
 		protected options: GoogleOAuth2Strategy.ConstructorOptions,
 		verify: Strategy.VerifyFunction<User, GoogleOAuth2Strategy.VerifyOptions>,
 	) {
 		super(verify);
 
+		this.accessType = this.options.accessType ?? "online";
+		this.includeGrantedScopes = this.options.includeGrantedScopes ?? false;
+
 		this.client = new Google(
 			options.clientId,
-			options?.clientSecret ?? "",
-			options.redirectURI?.toString() ?? "",
+			options.clientSecret,
+			options.redirectURI.toString(),
 		);
 	}
 
 	private get cookieName() {
 		if (typeof this.options.cookie === "string") {
-			return this.options.cookie || "oauth2";
+			return this.options.cookie || "google-oauth2";
 		}
-		return this.options.cookie?.name ?? "oauth2";
+		return this.options.cookie?.name ?? "google-oauth2";
 	}
 
 	private get cookieOptions() {
@@ -114,7 +145,13 @@ export class GoogleOAuth2Strategy<User> extends Strategy<
 		let tokens = await this.validateAuthorizationCode(code, codeVerifier);
 
 		debug("Verifying the user profile");
-		let user = await this.verify({ request, tokens });
+		const idToken = tokens.idToken();
+		const claims = decodeIdToken(idToken);
+		let user = await this.verify({
+			request,
+			tokens,
+			claims: claims as GoogleOAuth2UserClaims,
+		});
 
 		debug("User authenticated");
 		return user;
@@ -131,129 +168,46 @@ export class GoogleOAuth2Strategy<User> extends Strategy<
 		let url = this.client.createAuthorizationURL(
 			state,
 			codeVerifier,
-			this.options.scopes ?? [],
+			this.parseScope(this.options.scopes) ?? [],
 		);
 
 		return { state, codeVerifier, url };
 	}
 
-	// protected authorizationParams(): URLSearchParams {
-	// 	const params = new URLSearchParams({
-	// 		access_type: this.accessType,
-	// 		include_granted_scopes: String(this.includeGrantedScopes),
-	// 	});
-	// 	if (this.prompt) {
-	// 		params.set("prompt", this.prompt);
-	// 	}
-	// 	if (this.hd) {
-	// 		params.set("hd", this.hd);
-	// 	}
-	// 	if (this.loginHint) {
-	// 		params.set("login_hint", this.loginHint);
-	// 	}
-	// 	params.set("response_type", "code");
-	// 	params.set("client_id", this.options.clientId);
-	// 	params.set("scope", this.options?.scopes?.join(" ") ?? "");
-	// 	return params;
-	// }
-
 	protected authorizationParams(
-		params: URLSearchParams,
+		initialParams: URLSearchParams,
 		request: Request,
 	): URLSearchParams {
-		return new URLSearchParams(params);
+		const params = new URLSearchParams(initialParams);
+		params.set("access_type", this.accessType);
+		params.set("include_granted_scopes", String(this.includeGrantedScopes));
+		if (this.options.prompt) {
+			initialParams.set("prompt", this.options.prompt);
+		}
+		if (this.options.hd) {
+			initialParams.set("hd", this.options.hd);
+		}
+		if (this.options.loginHint) {
+			initialParams.set("login_hint", this.options.loginHint);
+		}
+
+		return params;
 	}
 
-	/**
-	 * Discover the OAuth2 issuer and create a new OAuth2Strategy instance from
-	 * the OIDC configuration that is returned.
-	 *
-	 * This method will fetch the OIDC configuration from the issuer and create a
-	 * new OAuth2Strategy instance with the provided options and verify function.
-	 *
-	 * @param uri The URI of the issuer, this can be a full URL or just the domain
-	 * @param options The rest of the options to pass to the OAuth2Strategy constructor, clientId, clientSecret, redirectURI, and scopes are required.
-	 * @param verify The verify function to use with the OAuth2Strategy instance
-	 * @returns A new OAuth2Strategy instance
-	 * @example
-	 * ```ts
-	 * let strategy = await OAuth2Strategy.discover(
-	 *   "https://accounts.google.com",
-	 *   {
-	 *     clientId: "your-client-id",
-	 *     clientSecret: "your-client-secret",
-	 *     redirectURI: "https://your-app.com/auth/callback",
-	 *     scopes: ["openid", "email", "profile"],
-	 *   },
-	 *   async ({ tokens }) => {
-	 *     return getUserProfile(tokens.access_token);
-	 *   },
-	 * );
-	 */
-	// static async discover<U, M extends GoogleOAuth2Strategy<U> = GoogleOAuth2Strategy<U>>(
-	// 	this: new (
-	// 		options: GoogleOAuth2Strategy.ConstructorOptions,
-	// 		verify: Strategy.VerifyFunction<U, GoogleOAuth2Strategy.VerifyOptions>,
-	// 	) => M,
-	// 	uri: string | URL,
-	// 	options: Pick<
-	// 		GoogleOAuth2Strategy.ConstructorOptions,
-	// 		"clientId" | "clientSecret" | "cookie" | "redirectURI" | "scopes"
-	// 	> &
-	// 		Partial<
-	// 			Omit<
-	// 				GoogleOAuth2Strategy.ConstructorOptions,
-	// 				"clientId" | "clientSecret" | "cookie" | "redirectURI" | "scopes"
-	// 			>
-	// 		>,
-	// 	verify: Strategy.VerifyFunction<U, GoogleOAuth2Strategy.VerifyOptions>,
-	// ) {
-	// 	// Parse the URI into a URL object
-	// 	let url = new URL(uri);
+	private parseScope(scope: GoogleOAuth2Strategy.ConstructorOptions["scopes"]) {
+		if (!scope) {
+			return GoogleStrategyDefaultScopes;
+		}
 
-	// 	if (!url.pathname.includes("well-known")) {
-	// 		// Add the well-known path to the URL if it's not already there
-	// 		url.pathname = url.pathname.endsWith("/")
-	// 			? `${url.pathname}${WELL_KNOWN}`
-	// 			: `${url.pathname}/${WELL_KNOWN}`;
-	// 	}
+		if (Array.isArray(scope)) {
+			return scope;
+		}
 
-	// 	// Fetch the metadata from the issuer and validate it
-	// 	let response = await fetch(url, {
-	// 		headers: { Accept: "application/json" },
-	// 	});
-
-	// 	// If the response is not OK, throw an error
-	// 	if (!response.ok) throw new Error(`Failed to discover issuer at ${url}`);
-
-	// 	// Parse the response body
-	// 	let parser = new ObjectParser(await response.json());
-
-	// 	// biome-ignore lint/complexity/noThisInStatic: This is need for subclasses
-	// 	return new this(
-	// 		{
-	// 			authorizationEndpoint: new URL(parser.string("authorization_endpoint")),
-	// 			tokenEndpoint: new URL(parser.string("token_endpoint")),
-	// 			tokenRevocationEndpoint: parser.has("revocation_endpoint")
-	// 				? new URL(parser.string("revocation_endpoint"))
-	// 				: undefined,
-	// 			codeChallengeMethod: parser.has("code_challenge_methods_supported")
-	// 				? parser.array("code_challenge_methods_supported").includes("S256")
-	// 					? CodeChallengeMethod.S256
-	// 					: CodeChallengeMethod.Plain
-	// 				: undefined,
-	// 			...options,
-	// 		},
-	// 		verify,
-	// 	);
-	// }
+		return scope;
+	}
 }
 
 export namespace GoogleOAuth2Strategy {
-	/**
-	 * This interface declares what configuration the strategy needs from the
-	 * developer to correctly work.
-	 */
 	export interface ConstructorOptions {
 		/**
 		 * The name of the cookie used to keep state and code verifier around.
@@ -273,33 +227,18 @@ export namespace GoogleOAuth2Strategy {
 		 * Provider you're using to authenticate users.
 		 */
 		clientId: string;
+
 		/**
 		 * This is the Client Secret of your application, provided to you by the
 		 * Identity Provider you're using to authenticate users.
 		 */
-		clientSecret?: string;
+		clientSecret: string;
 
-		/**
-		 * The endpoint the Identity Provider asks you to send users to log in, or
-		 * authorize your application.
-		 */
-		authorizationEndpoint: URLConstructor;
-		/**
-		 * The endpoint the Identity Provider uses to let's you exchange an access
-		 * code for an access and refresh token.
-		 */
-		tokenEndpoint: URLConstructor;
 		/**
 		 * The URL of your application where the Identity Provider will redirect the
 		 * user after they've logged in or authorized your application.
 		 */
-		redirectURI: URLConstructor | null;
-
-		/**
-		 * The endpoint the Identity Provider uses to revoke an access or refresh
-		 * token, this can be useful to log out the user.
-		 */
-		tokenRevocationEndpoint?: URLConstructor;
+		redirectURI: URLConstructor;
 
 		/**
 		 * The scopes you want to request from the Identity Provider, this is a list
@@ -309,12 +248,32 @@ export namespace GoogleOAuth2Strategy {
 		scopes?: string[];
 
 		/**
-		 * The code challenge method to use when sending the authorization request.
-		 * This is used when the Identity Provider requires a code challenge to be
-		 * sent with the authorization request.
-		 * @default "CodeChallengeMethod.S256"
+		 * The access type to use when sending the authorization request.
+		 * @default "online"
 		 */
-		codeChallengeMethod?: CodeChallengeMethod;
+		accessType?: "online" | "offline";
+
+		/**
+		 * Whether to include granted scopes in the authorization request.
+		 * @default false
+		 */
+		includeGrantedScopes?: boolean;
+
+		/**
+		 * The prompt to use when sending the authorization request.
+		 * @default "none"
+		 */
+		prompt?: "none" | "consent" | "select_account";
+
+		/**
+		 * The login hint to use when sending the authorization request.
+		 */
+		loginHint?: string;
+
+		/**
+		 * The hd to use when sending the authorization request.
+		 */
+		hd?: string;
 	}
 
 	/**
@@ -324,5 +283,6 @@ export namespace GoogleOAuth2Strategy {
 	export interface VerifyOptions {
 		request: Request;
 		tokens: OAuth2Tokens;
+		claims: GoogleOAuth2UserClaims;
 	}
 }
