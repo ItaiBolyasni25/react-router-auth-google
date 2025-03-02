@@ -1,13 +1,10 @@
 {
-	"name": "remix-auth-strategy-template",
-	"version": "0.0.0",
-	"description": "A description of the strategy",
+	"name": "react-router-auth-google",
+	"version": "1.0.0",
+	"description": "Google OAuth2 strategy for React Router Auth",
 	"license": "MIT",
-	"funding": ["https://github.com/sponsors/sergiodxa"],
 	"author": {
-		"name": "Sergio Xalambrí",
-		"email": "hello+oss@sergiodxa.com",
-		"url": "https://sergiodxa.com"
+		"name": "JVenusaur"
 	},
 	"repository": {
 		"type": "git",
@@ -17,7 +14,15 @@
 	"bugs": {
 		"url": "https://github.com/sergiodxa/remix-auth-strategy-template/issues"
 	},
-	"keywords": ["remix", "remix-auth", "auth", "authentication", "strategy"],
+	"keywords": [
+		"remix",
+		"remix-auth",
+		"auth",
+		"authentication",
+		"strategy",
+		"react-router",
+		"react-router-auth"
+	],
 	"scripts": {
 		"build": "tsc",
 		"typecheck": "tsc --noEmit",
