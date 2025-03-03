@@ -1,8 +1,9 @@
 import type { SetCookieInit } from "@mjackson/headers";
-import { Google, OAuth2Tokens } from "arctic";
+import { CodeChallengeMethod, Google, OAuth2RequestError, OAuth2Tokens } from "arctic";
 import { Strategy } from "remix-auth/strategy";
 export declare const GoogleStrategyScopeSeperator = " ";
 export declare const GoogleStrategyDefaultScopes: string[];
+export { OAuth2RequestError, CodeChallengeMethod };
 export type GoogleOAuth2UserClaims = {
     iss: string;
     azp: string;
@@ -109,4 +110,3 @@ export declare namespace GoogleOAuth2Strategy {
         claims: GoogleOAuth2UserClaims;
     }
 }
-export {};

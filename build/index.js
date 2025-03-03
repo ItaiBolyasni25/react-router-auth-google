@@ -9,6 +9,7 @@ export const GoogleStrategyDefaultScopes = [
     "https://www.googleapis.com/auth/userinfo.profile",
     "https://www.googleapis.com/auth/userinfo.email",
 ];
+export { OAuth2RequestError, CodeChallengeMethod };
 const debug = createDebug("GoogleOAuth2Strategy");
 export class GoogleOAuth2Strategy extends Strategy {
     options;

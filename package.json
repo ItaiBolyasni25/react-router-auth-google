@@ -1,6 +1,6 @@
 {
 	"name": "react-router-auth-google",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "Google OAuth2 strategy for React Router Auth",
 	"license": "MIT",
 	"author": {
