@@ -21,6 +21,8 @@ export const GoogleStrategyDefaultScopes = [
 	"https://www.googleapis.com/auth/userinfo.email",
 ];
 
+export { OAuth2RequestError, CodeChallengeMethod };
+
 export type GoogleOAuth2UserClaims = {
 	iss: string;
 	azp: string;
